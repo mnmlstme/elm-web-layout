@@ -1,8 +1,10 @@
 module Main exposing (..)
 
-import Html exposing (Html, p, div, span, button, text)
+import Html exposing (Html, p, div, span, button, text, dl, dd, dt)
 import Html.Attributes exposing (class)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, on)
+import DOM exposing (target, boundingClientRect)
+import Json.Decode exposing (Decoder)
 
 
 -- component import example
@@ -13,9 +15,13 @@ import Components.Enclave exposing (enclave)
 -- APP
 
 
-main : Program Never Int Msg
+main : Program Never Model Msg
 main =
-    Html.beginnerProgram { model = model, view = view, update = update }
+    Html.beginnerProgram
+        { model = initialModel
+        , view = view
+        , update = update
+        }
 
 
 
@@ -23,12 +29,21 @@ main =
 
 
 type alias Model =
-    Int
+    { size : Int
+    , actualSize : DOM.Rectangle
+    }
 
 
-model : number
-model =
-    72
+initialModel : Model
+initialModel =
+    { size = 72
+    , actualSize =
+        { top = 0.0
+        , left = 0.0
+        , width = 0.0
+        , height = 0.0
+        }
+    }
 
 
 
@@ -39,6 +54,7 @@ type Msg
     = NoOp
     | Increment
     | Reset
+    | Measure DOM.Rectangle
 
 
 update : Msg -> Model -> Model
@@ -48,10 +64,13 @@ update msg model =
             model
 
         Increment ->
-            model + 16
+            { model | size = model.size + 16 }
 
         Reset ->
-            72
+            { model | size = 72 }
+
+        Measure rect ->
+            { model | actualSize = rect }
 
 
 
@@ -107,14 +126,27 @@ content =
     ]
 
 
+decode : Decoder DOM.Rectangle
+decode =
+    target boundingClientRect
+
+
 view : Model -> Html Msg
 view model =
     let
         radius =
-            model
+            model.size
     in
         div [ class "container" ]
             [ enclave radius content
             , button [ onClick Increment ] [ text "Larger" ]
             , button [ onClick Reset ] [ text "Reset" ]
+            , Html.map Measure
+                (button [ on "click" decode ] [ text "Measure" ])
+            , dl []
+                [ dt [] [ text "Width" ]
+                , dd [] [ text (toString model.actualSize.width) ]
+                , dt [] [ text "Height" ]
+                , dd [] [ text (toString model.actualSize.height) ]
+                ]
             ]
