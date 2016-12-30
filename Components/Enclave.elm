@@ -1,20 +1,72 @@
-module Components.Enclave exposing (..)
+module Components.Enclave
+    exposing
+        ( view
+        , State
+        , initialLayout
+        , props
+        )
 
 import Html exposing (Html, section, div)
 import Html.Attributes exposing (class, style)
+import Html.Events as E
 import Svg exposing (svg, g, circle)
 import Svg.Attributes exposing (r, height, width, transform)
+import DOM exposing (boundingClientRect)
+import Json.Decode as Json
+
+
+type alias State =
+    { bbox : DOM.Rectangle
+    }
+
+
+initialLayout : State
+initialLayout =
+    State (DOM.Rectangle 0 0 0 0)
+
+
+type Props msg
+    = Props
+        { size : Int
+        , toMsg : State -> msg
+        }
+
+
+props : (State -> msg) -> Int -> Props msg
+props msg size =
+    Props { size = size, toMsg = msg }
+
+
+
+-- TODO: create PR for elm-dom:
+
+
+currentTarget : Json.Decoder a -> Json.Decoder a
+currentTarget decoder =
+    Json.field "currentTarget" decoder
+
+
+decodeLayout : Json.Decoder DOM.Rectangle
+decodeLayout =
+    currentTarget boundingClientRect
+
 
 
 -- enclave component—flow content into a bounded area
 
 
-enclave : Int -> List (Html msg) -> Html msg
-enclave param content =
+view : Props msg -> List (Html msg) -> Html msg
+view (Props { size, toMsg }) content =
     -- assume for now shape is a circle
     let
         radius =
-            param + 10
+            size
+
+        onClick =
+            E.on "click" <|
+                Json.map toMsg <|
+                    Json.map State <|
+                        decodeLayout
 
         rs =
             toString radius
@@ -103,5 +155,9 @@ enclave param content =
                 ]
                 []
             , bg
-            , section [ class "flow" ] content
+            , section
+                [ class "flow"
+                , onClick
+                ]
+                content
             ]

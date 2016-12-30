@@ -2,14 +2,12 @@ module Main exposing (..)
 
 import Html exposing (Html, p, div, span, button, text, dl, dd, dt)
 import Html.Attributes exposing (class)
-import Html.Events exposing (onClick, on)
-import DOM exposing (target, boundingClientRect)
-import Json.Decode exposing (Decoder)
+import Html.Events exposing (onClick)
 
 
--- component import example
+-- import our component
 
-import Components.Enclave exposing (enclave)
+import Components.Enclave as Layout
 
 
 -- APP
@@ -17,10 +15,11 @@ import Components.Enclave exposing (enclave)
 
 main : Program Never Model Msg
 main =
-    Html.beginnerProgram
-        { model = initialModel
+    Html.program
+        { init = init 72
         , view = view
         , update = update
+        , subscriptions = (\model -> Sub.none)
         }
 
 
@@ -30,20 +29,19 @@ main =
 
 type alias Model =
     { size : Int
-    , actualSize : DOM.Rectangle
+    , layout : Layout.State
     }
 
 
-initialModel : Model
-initialModel =
-    { size = 72
-    , actualSize =
-        { top = 0.0
-        , left = 0.0
-        , width = 0.0
-        , height = 0.0
-        }
-    }
+init : Int -> ( Model, Cmd Msg )
+init size =
+    let
+        model =
+            { size = 72
+            , layout = Layout.initialLayout
+            }
+    in
+        ( model, Cmd.none )
 
 
 
@@ -51,26 +49,22 @@ initialModel =
 
 
 type Msg
-    = NoOp
-    | Increment
+    = Increment
     | Reset
-    | Measure DOM.Rectangle
+    | LaidOut Layout.State
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            model
-
         Increment ->
-            { model | size = model.size + 16 }
+            ( { model | size = model.size + 16 }, Cmd.none )
 
         Reset ->
-            { model | size = 72 }
+            ( { model | size = 72 }, Cmd.none )
 
-        Measure rect ->
-            { model | actualSize = rect }
+        LaidOut layout ->
+            ( { model | layout = layout }, Cmd.none )
 
 
 
@@ -126,27 +120,26 @@ content =
     ]
 
 
-decode : Decoder DOM.Rectangle
-decode =
-    target boundingClientRect
-
-
 view : Model -> Html Msg
 view model =
     let
         radius =
             model.size
+
+        given =
+            Layout.props LaidOut
+
+        bbox =
+            model.layout.bbox
     in
         div [ class "container" ]
-            [ enclave radius content
+            [ Layout.view (given radius) content
             , button [ onClick Increment ] [ text "Larger" ]
             , button [ onClick Reset ] [ text "Reset" ]
-            , Html.map Measure
-                (button [ on "click" decode ] [ text "Measure" ])
             , dl []
                 [ dt [] [ text "Width" ]
-                , dd [] [ text (toString model.actualSize.width) ]
+                , dd [] [ text (toString bbox.width) ]
                 , dt [] [ text "Height" ]
-                , dd [] [ text (toString model.actualSize.height) ]
+                , dd [] [ text (toString bbox.height) ]
                 ]
             ]
